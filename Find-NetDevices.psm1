@@ -112,6 +112,7 @@
         -Added output to log file
         -Simplified return value (sorting bug)
         -Added host IP subnet check (is the host within the entered range?) 
+        -Added MAC OUI, Many thanks to Tyler Wright's Get-MACVednor.psm1
 
         v1.4; GV
         -Check arp if nbtstat returns null
@@ -153,11 +154,12 @@
 	Begin{
         $ErrorActionPreference = "Stop"
         $myLogFile = 'c:\tmp\Find-NetDevicesLog.txt'
+        $myOUIFile = 'c:\tmp\vendor.txt'
 
         # Set-Content -Path $myLogFile -Value ("Scan-Net log file " + (Get-Date))
+
         [IPAddress] $ipStart = $StartScanIP
         [IPAddress] $ipEnd   = $EndScanIP
-
 
         $outOfRange = $true
 
@@ -348,19 +350,25 @@
 							$WinRMAccess = $false
 						}
 						
-						#Get MAC Address using NBTSTAT, ARP, 
+						#Get MAC Address using NBTSTAT or ARP 
 						Try
 						{
-							$result= nbtstat -A $IP | select-string "MAC"
-							$MAC = "N:" + [string]([Regex]::Matches($result, "([0-9A-F][0-9A-F]-){5}([0-9A-F][0-9A-F])"))
+							$result = nbtstat -A $IP | select-string "MAC"
+                            $result = [string]([Regex]::Matches($result, "([0-9A-F][0-9A-F]-){5}([0-9A-F][0-9A-F])"))
+                            if (($result =eq $null) -or ($result -eq '')) {
+                                $MAC = $null
+                            }
+                            else {
+							    $MAC = "N: $result"
+                            } 
 						}
 						Catch
 						{
-#							$MAC = $null
-                            $MAC = "noNBTSTAT"
+							$MAC = $null
+#                            $MAC = "noNBTSTAT"
 						}
                         
-                        if($MAC -eq "noNBTSTAT")
+                        if($MAC -eq $null)
                         {
                             # Is there an entry in ARP?
                             Try
@@ -368,7 +376,7 @@
 							    $result = arp -A $IP
                                 $result = [string]([Regex]::Matches($result, "([0-9a-f][0-9a-f]-){5}([0-9a-f][0-9a-f])"))
                                 if (($result -eq $null) -or ($result -eq '')) {
-                                    $MAC = "No MAC found"
+                                    $MAC = $null
                                 } 
                                 else {
                                     $MAC = "A: $result"
@@ -376,10 +384,31 @@
 						    }
 						    Catch
 						    {
-#							    $MAC = $null
-                                $MAC = "noARP"
+							    $MAC = $null
+#                                $MAC = "noARP"
 						    }
 						}
+
+                        # Match MAC to vendor
+                        if($MAC -ne $null) {
+                            Try
+			                {
+				                $output = Select-String -Path $myOUIFile -pattern $result
+				                $output = $output -replace ".*(hex)"
+				                $output = $output.Substring(3)
+				            ##    return $output
+                                $MAC = "$MAC $output"
+			                }
+			                Catch
+			                {
+				                Write-Warning "MAC address was not found"
+				            ##    return false
+			                }
+                        }
+                        else {
+                            $MAC = "No MAC found"
+                        }
+
 
 						#Get ports status
 						$PortsStatus = @()
