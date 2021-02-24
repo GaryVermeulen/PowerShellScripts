@@ -106,6 +106,7 @@
         -Added output to log file
         -Simplified return value (sorting bug)
         -Added host IP subnet check (is the host within the entered range?) 
+	-Added MAC OUI, Many thanks to Tyler Wright's Get-MACVednor.psm1
         v1.4; GV
         -Check arp if nbtstat returns null
         -Scan for serial number
