@@ -1,5 +1,5 @@
 Find-NetDevices.psm1
-Modofied version of Michal Gajda's Get-NetItems (Thank you Michal!)
+Modified version of Michal Gajda's Get-NetItems (Thank you Michal!)
 Attempting (work-in-process) to acquire as much information as possible from all devices found on a given subnet.
 
 <# 
