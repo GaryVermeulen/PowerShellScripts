@@ -1,7 +1,7 @@
-# Find-NetDevices.psm1
-# Enhanced version of Michal Gajda's Get-NetItems (Thank you Michal!)
-# Attempting to acquire as much information as possible from all found devices
-#
+Find-NetDevices.psm1
+Modofied version of Michal Gajda's Get-NetItems (Thank you Michal!)
+Attempting (work-in-process) to acquire as much information as possible from all devices found on a given subnet.
+
 <# 
 	.SYNOPSIS 
 		Scan subnet machines
@@ -74,13 +74,13 @@
 		Active     : True
 		Host       : pc02.mydomain.com
 		IP         : 10.10.10.2
-    MAC        :
+		MAC        :
 		OS_Name    : Microsoft Windows Server 2008 R2 Enterprise
 		OS_Ver     : 6.1.7601 Service Pack 1
 		WMI        : True
 		WinRM      : True
-    TAG        :
-    BIOS_Ver   :
+		TAG        :
+		BIOS_Ver   :
 		
 	.EXAMPLE 	
 		PS C:\> $Result = Find-NetDevices -StartScanIP 10.10.10.1 -EndScanIP 10.10.10.25 -Ports 80,3389,5900	
@@ -95,34 +95,34 @@
 		10.10.10.9  pc09.mydomain.com 00-15-4A-0C-80-31 80-True, 3389-True, 5900-False
 		10.10.10.10 pc10.mydomain.com 00-15-5D-02-1F-1C 80-False, 3389-True, 5900-False
 	.NOTES 
-		Original Get-SubNetItems Author: Michal Gajda
-        Modifier: GV
+	Original Get-SubNetItems Author: Michal Gajda
+	Modifier: GV
 		
-		ChangeLog:
-        ----------
-        v2.0; GV
-        -Changed name
-        -Added more scanning checks for non-Windows devices in an attempt to identify
-        -Added output to log file
-        -Simplified return value (sorting bug)
-        -Added host IP subnet check (is the host within the entered range?) 
-	-Added MAC OUI, Many thanks to Tyler Wright's Get-MACVednor.psm1
-        v1.4; GV
-        -Check arp if nbtstat returns null
-        -Scan for serial number
+	ChangeLog:
+	----------
+	v2.0; GV
+		-Changed name
+		-Added(adding) more scanning checks for non-Windows devices in an attempt to identify
+		-Added output to log file
+		-Simplified return value (fixed sorting bug)
+		-Added host IP subnet check (is the host within the entered range?) 
+		-Added MAC OUI, Many thanks to Tyler Wright's Get-MACVednor.psm1
+	v1.4; GV
+		-Check arp if nbtstat returns null
+		-Scan for serial number
 		
-    v1.3
+	v1.3
 		-Scan items in subnet for MAC
 		-Basic port scan on items in subnet
 		-Fixed some small spelling bug
 		
-		v1.2
+	v1.2
 		-IP Range Ganerator upgrade
 		
-		v1.1
+	v1.1
 		-ProgressBar upgrade
 		
-		v1.0:
+	v1.0:
 		-Scan subnet for items
 		-Scan items in subnet for WMI Access
 		-Scan items in subnet for WinRM Access
