@@ -226,12 +226,14 @@
 				public System.Net.IPAddress IP;
 				public string MAC;
 				public System.Object Ports;
-				public string OS_Name;
-				public string OS_Ver;
+				public string WMI_OS_Name;
+   				public string WMI_OS_Ver;
+                public string WMI_TAG;
+                public string WMI_BIOS_Ver;
 				public bool WMI;
+                public string WinRM_OS_Name;
+                public string WinRM_OS_Ver;
 				public bool WinRM;
-                public string TAG;
-                public string BIOS_Ver;
 			}
 "@		
 
@@ -242,16 +244,19 @@
 			Foreach($IP in $ScanIPRange)
 			{
 	 			Write-Verbose "Starting job ($((Get-Job -name *.*.*.* | Measure-Object).Count+1)/$MaxJobs) for $IP."
+
 				Start-Job -Name $IP -ArgumentList $IP,$Ports,$Class -ScriptBlock{ 
 				
 					param
 					(
+                    ##$myOUIFile = $myOUIFile,  # Something strange since it hangs while passing file name...~? 
 					[System.Net.IPAddress]$IP = $IP,
 					[Int[]]$Ports = $Ports,
 					$Class = $Class 
 					)
 					
 					Add-Type -TypeDefinition $Class
+
 					
 					if(Test-Connection -ComputerName $IP -Quiet)
 					{
@@ -263,7 +268,7 @@
 						Catch
 						{
 							$HostName = $null
-			                Write-Verbose "Why do we set (HostName var) $HostName to $null ?"	
+			                Write-Verbose "GetHostbyAddress($IP) failed to return HostName"	
 						}
 						
 						#Get WMI Access, OS Name and version via WMI
@@ -279,10 +284,10 @@
 
 							if($Result -ne $null)
 							{
-								$OS_Name = $Result | Select-Object -ExpandProperty Caption
-								$OS_Ver = $Result | Select-Object -ExpandProperty Version
-								$OS_CSDVer = $Result | Select-Object -ExpandProperty CSDVersion
-								$OS_Ver += "> $OS_CSDVer"
+								$WMI_OS_Name = $Result | Select-Object -ExpandProperty Caption
+								$WMI_OS_Ver = $Result | Select-Object -ExpandProperty Version
+								$WMI_OS_CSDVer = $Result | Select-Object -ExpandProperty CSDVersion
+								$WMI_OS_Ver += "> $WMI_OS_CSDVer"			
 								$WMIAccess = $true					
 							}
 							else
@@ -310,8 +315,8 @@
 
 							    if($Result -ne $null)
 							    {
-								    $TAG = $Result | Select-Object -ExpandProperty SerialNumber
-								    $BIOS_Ver = $Result | Select-Object -ExpandProperty SMBIOSBIOSVersion
+								    $WMI_TAG = $Result | Select-Object -ExpandProperty SerialNumber
+								    $WMI_BIOS_Ver = $Result | Select-Object -ExpandProperty SMBIOSBIOSVersion
 								    $WMIAccess = $true					
 							    }
 							    else
@@ -335,27 +340,26 @@
 						{
 							$Result = Invoke-Command -ComputerName $IP -ScriptBlock {systeminfo} -ErrorAction SilentlyContinue 
 						}
-						
-						if($Result -ne $null)
-						{
-							if($OS_Name -eq $null)
-							{
-								$OS_Name = ($Result[2..3] -split ":\s+")[1]
-								$OS_Ver = ($Result[2..3] -split ":\s+")[3]
-							}	
-							$WinRMAccess = $true
-						}
-						else
-						{
-							$WinRMAccess = $false
-						}
+
+                        if($Result -ne $null) 
+                        {
+                            $WinRM_OS_Name = ($Result[2..3] -split ":\s+")[1]
+                            $WinRM_OS_Ver = ($Result[2..3] -split ":\s+")[3]
+                            $WinRMAccess = $true
+                        }
+                        else
+                        {
+                            $WinRMAccess = $false
+                        }
+                        						
 						
 						#Get MAC Address using NBTSTAT or ARP 
 						Try
 						{
 							$result = nbtstat -A $IP | select-string "MAC"
                             $result = [string]([Regex]::Matches($result, "([0-9A-F][0-9A-F]-){5}([0-9A-F][0-9A-F])"))
-                            if (($result =eq $null) -or ($result -eq '')) {
+                            if (($result -eq $null) -or ($result -eq '')) {
+                                
                                 $MAC = $null
                             }
                             else {
@@ -365,7 +369,6 @@
 						Catch
 						{
 							$MAC = $null
-#                            $MAC = "noNBTSTAT"
 						}
                         
                         if($MAC -eq $null)
@@ -375,34 +378,35 @@
 						    {
 							    $result = arp -A $IP
                                 $result = [string]([Regex]::Matches($result, "([0-9a-f][0-9a-f]-){5}([0-9a-f][0-9a-f])"))
-                                if (($result -eq $null) -or ($result -eq '')) {
+                                if (($result -eq $null) -or ($result -eq ''))
+                                {
                                     $MAC = $null
                                 } 
-                                else {
+                                else 
+                                {
                                     $MAC = "A: $result"
                                 }  
 						    }
 						    Catch
 						    {
 							    $MAC = $null
-#                                $MAC = "noARP"
 						    }
 						}
 
                         # Match MAC to vendor
-                        if($MAC -ne $null) {
+                        if($MAC -ne $null) 
+                        {    
                             Try
 			                {
-				                $output = Select-String -Path $myOUIFile -pattern $result
+				               ## $output = Select-String -Path $myOUIFile -pattern $result.Substring(0,8)
+                                $output = Select-String -Path 'c:\tmp\vendor.txt' -pattern $result.Substring(0,8) # Workaround until resolution of passing $myOUIFile issue
 				                $output = $output -replace ".*(hex)"
 				                $output = $output.Substring(3)
-				            ##    return $output
                                 $MAC = "$MAC $output"
 			                }
 			                Catch
 			                {
-				                Write-Warning "MAC address was not found"
-				            ##    return false
+				                Write-Host "MAC address was not found"				   
 			                }
                         }
                         else {
@@ -438,34 +442,38 @@
 
 						
 						$HostObj = New-Object SubNetItem -Property @{            
-		        					Active		= $true
-									Host        = $HostName
-									IP          = $IP 
-									MAC         = $MAC
-									Ports       = $PortsStatus
-		        					OS_Name     = $OS_Name
-									OS_Ver      = $OS_Ver               
-		        					WMI         = $WMIAccess      
-		        					WinRM       = $WinRMAccess      
-                                    TAG         = $TAG
-                                    BIOS_Ver    = $BIOS_Ver
+		        					Active		  = $true
+									Host          = $HostName
+									IP            = $IP 
+									MAC           = $MAC
+									Ports         = $PortsStatus
+		        					WMI_OS_Name   = $WMI_OS_Name
+									WMI_OS_Ver    = $WMI_OS_Ver               
+                                    WMI_TAG       = $WMI_TAG
+                                    WMI_BIOS_Ver  = $WMI_BIOS_Ver
+		        					WMI           = $WMIAccess
+                                    WinRM_OS_Name = $WinRM_OS_Name
+									WinRM_OS_Ver  = $WinRM_OS_Ver               
+		        					WinRM         = $WinRMAccess
 		        		}
 						$HostObj
 					}
 					else
 					{
 						$HostObj = New-Object SubNetItem -Property @{            
-		        					Active		= $false
-									Host        = $null
-									IP          = $IP  
-									MAC         = $null
-									Ports       = $null
-		        					OS_Name     = $null
-									OS_Ver      = $null               
-		        					WMI         = $null      
-		        					WinRM       = $null      
-                                    TAG         = $null
-                                    BIOS_Ver    = $null
+		        					Active		  = $false
+									Host          = $null
+									IP            = $IP  
+									MAC           = $null
+									Ports         = $null
+		        					WMI_OS_Name   = $null
+									WMI_OS_Ver    = $null               
+                                    WMI_TAG       = $null
+                                    WMI_BIOS_Ver  = $null
+		        					WMI           = $null      
+                                    WinRM_OS_Name = $null
+                                    WinRM_OS_Ver  = $null
+		        					WinRM         = $null
 		        		}
 						$HostObj
 					}
@@ -580,7 +588,7 @@
 
           #  Add-Content -Path $myLogFile -Value ("$myString $myNumber " + (Get-Date))
 
-            $sortedObj = $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} | Format-Table IP, Active, MAC, WMI, WinRM, Host, OS_Name, OS_Ver, TAG, BIOS_Ver, Ports -AutoSize
+            $sortedObj = $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} | Format-Table IP, Active, MAC, WMI, WinRM, Host, WMI_OS_Name, WMI_OS_Ver, WMI_TAG, WMI_BIOS_Ver, WinRM_OS_Name, WinRM_OS_Ver, Ports -AutoSize
 
             $strObj = Out-String -InputObject $sortedObj 
 
