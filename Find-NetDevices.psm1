@@ -153,40 +153,7 @@
 	)
 
 	Begin{
-        $ErrorActionPreference = "Stop"
-        $myLogFile = 'c:\tmp\Find-NetDevicesLog.txt'
-        $myOUIFile = 'c:\tmp\vendor.txt'
-
-        # Set-Content -Path $myLogFile -Value ("Scan-Net log file " + (Get-Date))
-
-        [IPAddress] $ipStart = $StartScanIP
-        [IPAddress] $ipEnd   = $EndScanIP
-
-        $outOfRange = $true
-
-        try{
-            $myIPs = Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred    
-        }
-        catch {
-            Write-Host "Error caught while checking Host IP address..."
-        }    
-
-        Write-Host "Host IP's found: $myIPs"
-
-
-        $myIPs.IPAddress | ForEach-Object -Process {if (($_ -ge $ipStart) -AND ($_ -le $ipEnd)) {$outOfRange = $false; $goodIP = $_} }
-
-        if ($outOfRange) {
-            Write-Host "Warning: One or more Host IP(s) $myIPs are out of range: $ipStart to $ipEnd"
-        }
-        else {
-            Write-Host "Host IP(s) $goodIP are within range: $ipStart to $ipEnd"
-        }
-
-        # Hopefully this can stay here and not have to go into the ScriptBlock
-        
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
-
 
         if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type)
         {
@@ -217,13 +184,62 @@
                     }
                 }
 "@
-        Add-Type $certCallback
+            Add-Type $certCallback
         }
-
 
         [ServerCertificateValidationCallback]::Ignore()
 
+        $ErrorActionPreference = "Stop"
+        $tmpPath = 'C:\tmp' # Because of the possible call to New-Item which doesn't like c:\
 
+        if (Test-Path -Path $tmpPath)
+        {
+            $myLogFile = $tmpPath + '\Find-NetDevicesLog.txt'
+            $myOUIFile = $tmpPath + '\vendor.txt'
+        }
+        else
+        {
+            New-Item -Path "c:\" -Name 'tmp' -ItemType "directory"
+
+            $myLogFile = $tmpPath + '\Find-NetDevicesLog.txt'
+            $myOUIFile = $tmpPath + '\vendor.txt'
+
+            # Since the folder did not exist we need to get a vendor or OUI file
+            $file = 'https://raw.githubusercontent.com/tylwright/Get-MACVendor/master/vendor.txt'
+
+            try {
+                Invoke-WebRequest -Uri $file -OutFile $myOUIFile -ErrorAction Stop -Verbose
+                "Grabbed '$($file)' to 'myOUIFile'"
+            } catch {
+                throw "Unable to download '$($file.path)'"
+            }
+        }
+
+        # Set-Content -Path $myLogFile -Value ("Scan-Net log file " + (Get-Date))
+
+        [IPAddress] $ipStart = $StartScanIP
+        [IPAddress] $ipEnd   = $EndScanIP
+
+        $outOfRange = $true
+
+        try{
+            $myIPs = Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred    
+        }
+        catch {
+            Write-Host "Error caught while checking Host IP address..."
+        }    
+
+        Write-Host "Host IP's found: $myIPs"
+
+
+        $myIPs.IPAddress | ForEach-Object -Process {if (($_ -ge $ipStart) -AND ($_ -le $ipEnd)) {$outOfRange = $false; $goodIP = $_} }
+
+        if ($outOfRange) {
+            Write-Host "Warning: One or more Host IP(s) $myIPs are out of range: $ipStart to $ipEnd" -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "Host IP(s) $goodIP are within range: $ipStart to $ipEnd" -ForegroundColor Green
+        }
     }
 
 	Process
@@ -449,7 +465,7 @@
 			                }
 			                Catch
 			                {
-				                Write-Host "MAC address was not found"				   
+				                Write-Host "MAC vendor was not found for $IP : $MAC" -ForegroundColor Yellow			   
 			                }
                         }
                         else {
