@@ -194,14 +194,14 @@
 
         if (Test-Path -Path $tmpPath)
         {
-            $myLogFile = $tmpPath + '\Find-NetDevicesLog.txt'
+            $myLogFile = $tmpPath + '\Find-NetDevicesLog.csv'
             $myOUIFile = $tmpPath + '\vendor.txt'
         }
         else
         {
             New-Item -Path "c:\" -Name 'tmp' -ItemType "directory"
 
-            $myLogFile = $tmpPath + '\Find-NetDevicesLog.txt'
+            $myLogFile = $tmpPath + '\Find-NetDevicesLog.csv'
             $myOUIFile = $tmpPath + '\vendor.txt'
 
             # Since the folder did not exist we need to get a vendor or OUI file
@@ -658,21 +658,13 @@
 			
 			Write-Verbose "Scan finished."
 
-          #  Add-Content -Path $myLogFile -Value ("$myString $myNumber " + (Get-Date))
-
-            $sortedObj = $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} | Format-Table IP, Active, MAC, WMI, WinRM, Host, WMI_OS_Name, WMI_OS_Ver, WMI_TAG, WMI_BIOS_Ver, WinRM_OS_Name, WinRM_OS_Ver, Ports, HTTPCode -AutoSize
-
-            $strObj = Out-String -InputObject $sortedObj 
-
-            # Add-Content -Path $myLogFile -Value $strObj
-
-            Set-Content -Path $myLogFile -Value $strObj
+            $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} | Export-Csv -Path $myLogFile -NoTypeInformation
  
             Return $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} 
 		}
 	}
 	
 	End{
-        Add-Content -Path $myLogFile -Value "*End*"
+        Add-Content -Path $myLogFile -Value "*End*Finir*Fin*Fine*Finis*Ende*"
     }
 }
