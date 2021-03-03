@@ -113,6 +113,7 @@
         -Simplified return value (sorting bug)
         -Added host IP subnet check (is the host within the entered range?) 
         -Added MAC OUI, Many thanks to Tyler Wright's Get-MACVednor.psm1
+        -Added HTTP check 
 
         v1.4; GV
         -Check arp if nbtstat returns null
@@ -182,6 +183,47 @@
             Write-Host "Host IP(s) $goodIP are within range: $ipStart to $ipEnd"
         }
 
+        # Hopefully this can stay here and not have to go into the ScriptBlock
+        
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
+
+
+        if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type)
+        {
+            $certCallback = @"
+                using System;
+		        using System.Net;
+		        using System.Net.Security;
+		        using System.Security.Cryptography.X509Certificates;
+                public class ServerCertificateValidationCallback
+		        {
+
+                    public static void Ignore()
+			        {
+				        if(ServicePointManager.ServerCertificateValidationCallback ==null)
+				        {
+					        ServicePointManager.ServerCertificateValidationCallback += 
+						        delegate
+						    (
+							    Object obj, 
+							    X509Certificate certificate, 
+							    X509Chain chain, 
+							    SslPolicyErrors errors
+						    )
+						    {
+							    return true;
+						    };
+				        }
+                    }
+                }
+"@
+        Add-Type $certCallback
+        }
+
+
+        [ServerCertificateValidationCallback]::Ignore()
+
+
     }
 
 	Process
@@ -234,6 +276,7 @@
                 public string WinRM_OS_Name;
                 public string WinRM_OS_Ver;
 				public bool WinRM;
+                public string HTTPCode;
 			}
 "@		
 
@@ -440,6 +483,17 @@
 							}
 						}
 
+                        # Do we speak HTML?
+                        try
+                        {
+                            $webr = Invoke-Webrequest -URI "http://$IP"
+                            $HTTPCode = $webr.StatusCode
+                        }
+                        catch
+                        {
+                            $HTTPCode = '418' # Yep, I'm a teapot ;-)
+                        }
+
 						
 						$HostObj = New-Object SubNetItem -Property @{            
 		        					Active		  = $true
@@ -455,6 +509,7 @@
                                     WinRM_OS_Name = $WinRM_OS_Name
 									WinRM_OS_Ver  = $WinRM_OS_Ver               
 		        					WinRM         = $WinRMAccess
+                                    HTTPCode      = $HTTPCode
 		        		}
 						$HostObj
 					}
@@ -474,6 +529,7 @@
                                     WinRM_OS_Name = $null
                                     WinRM_OS_Ver  = $null
 		        					WinRM         = $null
+                                    HTTPCode      = $null
 		        		}
 						$HostObj
 					}
@@ -588,7 +644,7 @@
 
           #  Add-Content -Path $myLogFile -Value ("$myString $myNumber " + (Get-Date))
 
-            $sortedObj = $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} | Format-Table IP, Active, MAC, WMI, WinRM, Host, WMI_OS_Name, WMI_OS_Ver, WMI_TAG, WMI_BIOS_Ver, WinRM_OS_Name, WinRM_OS_Ver, Ports -AutoSize
+            $sortedObj = $ScanResult | Sort-Object -Property @{Expression = {$_.IP}} | Format-Table IP, Active, MAC, WMI, WinRM, Host, WMI_OS_Name, WMI_OS_Ver, WMI_TAG, WMI_BIOS_Ver, WinRM_OS_Name, WinRM_OS_Ver, Ports, HTTPCode -AutoSize
 
             $strObj = Out-String -InputObject $sortedObj 
 
