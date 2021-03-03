@@ -107,6 +107,7 @@ Attempting (work-in-process) to acquire as much information as possible from all
 		-Simplified return value (fixed sorting bug)
 		-Added host IP subnet check (is the host within the entered range?) 
 		-Added MAC OUI, Many thanks to Tyler Wright's Get-MACVednor.psm1
+		-Added HTTP check
 	v1.4; GV
 		-Check arp if nbtstat returns null
 		-Scan for serial number
