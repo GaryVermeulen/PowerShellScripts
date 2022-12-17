@@ -1,1 +1,1 @@
-Collection of PwerShell scripts
+Collection of PowerShell scripts
