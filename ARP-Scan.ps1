@@ -1,4 +1,4 @@
-﻿
+﻿# *** Verify file location ***
 $Records=Import-CSV C:\gdata\oui\Oui.csv
 $myARP = arp -a
 $myIPAddress = ''
